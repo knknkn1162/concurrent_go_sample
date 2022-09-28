@@ -1,9 +1,16 @@
+// parent -> child nnotification
 package main
 
 import (
     "fmt"
     "time"
 )
+
+func do_calc(num int, c string) int {
+    fmt.Printf(c)
+    time.Sleep(300 * time.Millisecond)
+    return 1
+}
 
 func do_job(done <-chan bool, num int, c string) <-chan int{
     res := make(chan int)
@@ -14,9 +21,7 @@ func do_job(done <-chan bool, num int, c string) <-chan int{
                 case <-done:
                     return
                 default:
-                    fmt.Printf(c)
-                    time.Sleep(300 * time.Millisecond)
-                    res <-i
+                    res <-do_calc(i, c)
             }
         }
     }()
@@ -31,13 +36,16 @@ func main() {
         terminated <-true
     }()
     res := do_job(done, 100, ".")
+    cnt := 0
     for v := range res {
-        if(v >= 5) {
+        cnt += v
+        if(cnt >= 5) {
             break
         }
     }
     // notify child to done the job!
     close(done)
-    fmt.Println("press Ctrl-C")
+    fmt.Println("done!")
     <-terminated
+    fmt.Println("terminated")
 }

@@ -26,21 +26,20 @@ func add(stream <-chan int, additive int) <-chan int {
     res := make(chan int)
     // when all co-goroutines are finished
     // finish this with close(res)
+    var wg sync.WaitGroup
+    for i := 0; i < 3; i++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            for v := range stream {
+                // it's little heavy
+                res <- do_calc(v, additive)
+            }
+        }()
+    }
+    // when all jobs are done, close channel
     go func() {
         defer close(res)
-        var wg sync.WaitGroup
-        for i := 0; i < 3; i++ {
-            wg.Add(1)
-            go func() {
-                defer wg.Done()
-                for v := range stream {
-                    // it's little heavy
-                    res <- do_calc(v, additive)
-                }
-            }()
-        }
-        // when all co-goroutines are finished
-        // finish this with close(res)
         wg.Wait()
     }()
     return res
