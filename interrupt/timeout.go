@@ -16,7 +16,7 @@ func main() {
     done := make(chan bool)
     go func() {
         do_calc()
-        done<-true
+        close(done)
     }()
     // both block
     select {
