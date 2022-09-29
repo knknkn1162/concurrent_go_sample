@@ -16,7 +16,7 @@ func main() {
     for _, url := range urls {
         url := url
         // little harder
-        time.Sleep(3 * time.Millisecond)
+        time.Sleep(20 * time.Millisecond)
         eg.Go(func() error {
             // early return
             select {
