@@ -31,6 +31,7 @@ func add(stream <-chan int, additive int) <-chan int {
         wg.Add(1)
         go func() {
             defer wg.Done()
+            // stream: fanout
             for v := range stream {
                 // it's little heavy
                 res <- do_calc(v, additive)
