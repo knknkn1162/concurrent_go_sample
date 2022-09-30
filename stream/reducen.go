@@ -20,19 +20,18 @@ func gen(max int) <-chan int {
 func reduce(stream <-chan int, additive int) <-chan int {
     res := make(chan int)
     var ans int32
+    var wg sync.WaitGroup
+    for i := 0; i < 3; i++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            for v := range stream {
+                // must use atomic function
+                atomic.AddInt32(&ans, int32(v))
+            }
+        }()
+    }
     go func() {
-        var wg sync.WaitGroup
-        defer close(res)
-        for i := 0; i < 3; i++ {
-            wg.Add(1)
-            go func() {
-                defer wg.Done()
-                for v := range stream {
-                    // must use atomic function
-                    atomic.AddInt32(&ans, int32(v))
-                }
-            }()
-        }
         wg.Wait()
         res <- int(ans)
     }()
