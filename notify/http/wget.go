@@ -67,7 +67,7 @@ func newreq(urlCh <-chan *url.URL) <-chan *http.Request {
     return reqCh
 }
 
-func zipRequest(connCh <-chan net.Conn, reqCh <-chan *http.Request, ) <-chan RequestInfo {
+func zipRequest(connCh <-chan net.Conn, reqCh <-chan *http.Request) <-chan RequestInfo {
     ret := make(chan RequestInfo)
     go func() {
         defer close(ret)
@@ -125,11 +125,20 @@ func wget(urls ...string) <-chan *http.Response {
     return getResponse(reqInfoCh)
 }
 
+func printResponse(resCh <-chan *http.Response) <-chan bool {
+    ret := make(chan bool)
+    go func() {
+        defer close(ret)
+        for res := range resCh {
+            fmt.Printf("%v %v\n", res.Proto, res.Status)
+        }
+    }()
+    return ret
+}
+
 func main() {
     urls := []string{"https://www.google.com", "https://badhost", "https://www.google.com", "https://www.google.com"}
-    for res := range wget(urls...) {
-        fmt.Println(res.StatusCode)
-        // dump, _ := httputil.DumpResponse(res, false)
-        // fmt.Println(string(dump))
-    }
+    resCh := wget(urls...)
+    done := printResponse(resCh)
+    <-done
 }
