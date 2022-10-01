@@ -4,7 +4,6 @@ import (
     "fmt"
     "net"
     "sync"
-    "time"
     "net/url"
     "net/http"
     "bufio"
@@ -82,6 +81,27 @@ func do_calc(num int) string {
     return fmt.Sprintf("%v: 0x%x", num, sha256) + "\n"
 }
 
+func sendData(conn net.Conn, idx int) {
+    defer conn.Close()
+    fmt.Printf("recv %v\n", idx)
+    req, err := http.ReadRequest(
+        bufio.NewReader(conn),
+    )
+    if err != nil {
+        panic(err)
+    }
+    num := url2data(req.URL)
+    content := do_calc(num)
+
+    response := http.Response{
+        StatusCode: 200,
+        Proto: "1.1",
+        ContentLength: int64(len(content)),
+        Body: io.NopCloser(strings.NewReader(content)),
+    }
+    response.Write(conn)
+}
+
 func readRequest(jobNum int, connCh <-chan net.Conn) <-chan bool {
     done := make(chan bool)
     var wg sync.WaitGroup
@@ -90,24 +110,7 @@ func readRequest(jobNum int, connCh <-chan net.Conn) <-chan bool {
         go func(idx int) {
             defer wg.Done()
             for conn := range connCh {
-                fmt.Printf("recv %v\n", idx)
-                req, err := http.ReadRequest(
-                    bufio.NewReader(conn),
-                )
-                if err != nil {
-                    panic(err)
-                }
-                num := url2data(req.URL)
-                content := do_calc(num)
-
-                response := http.Response{
-                    StatusCode: 200,
-                    Proto: "1.1",
-                    ContentLength: int64(len(content)),
-                    Body: io.NopCloser(strings.NewReader(content)),
-                }
-                response.Write(conn)
-                conn.Close()
+                sendData(conn, idx)
             }
         }(i)
     }
@@ -126,5 +129,4 @@ func main() {
     connCh := accept(5, listener)
     <-readRequest(30, connCh)
     fmt.Println("ok")
-    time.Sleep(50 * time.Second)
 }
