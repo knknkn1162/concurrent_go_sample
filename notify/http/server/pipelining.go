@@ -71,6 +71,8 @@ func sendData(conn net.Conn, idx int) <-chan<-chan *http.Response {
             fmt.Println("publish sessionResponse")
             sessionResponse := handleRequest(req)
             // 1: send sessionResponse
+            // 早く開始したものから順番に処理するときは、チャネルの中に開始順にチャネルを入れて、それぞれの子チャネルで終了を待ちます。
+            // // 多重化しない場合は処理が終わったものからキューされる
             sessionResponses<- sessionResponse
         }
         // 5: close sessionResponses
