@@ -101,11 +101,25 @@ func getResponse(reqInfoCh <-chan RequestInfo) <-chan *http.Response {
     return resCh
 }
 
+func dupChannel(srcCh <-chan *url.URL) (<-chan *url.URL, <-chan *url.URL) {
+    dst1 := make(chan *url.URL)
+    dst2 := make(chan *url.URL)
+    go func() {
+        defer close(dst1)
+        defer close(dst2)
+        for val := range srcCh {
+            dst1 <- val
+            dst2 <- val
+        }
+    }()
+    return dst1, dst2
+}
+
 
 func wget(urls ...string) <-chan *http.Response {
     urlCh := str2url(urls...)
-    urlCh2 := str2url(urls...)
-    connCh := getConn(urlCh)
+    urlCh1, urlCh2 := dupChannel(urlCh)
+    connCh := getConn(urlCh1)
     reqCh := newreq(urlCh2)
     reqInfoCh := zipRequest(connCh, reqCh)
     return getResponse(reqInfoCh)
