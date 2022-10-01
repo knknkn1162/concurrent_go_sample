@@ -34,10 +34,6 @@ func accept(jobNum int, listener net.Listener) <-chan net.Conn {
     return ret
 }
 
-//type ResponseChannel struct {
-//    respCh <-chan *http.Response
-//}
-
 func handleRequest(req *http.Request) <-chan *http.Response {
     sessionResponse := make(chan *http.Response)
     go func() {
@@ -49,25 +45,35 @@ func handleRequest(req *http.Request) <-chan *http.Response {
             ContentLength: int64(len(content)),
             Body: io.NopCloser(strings.NewReader(content)),
         }
+        // 2: send data in sessionResponse
         sessionResponse <- resp
+        // 4: close sessionResponse
     }()
     return sessionResponse
 }
 
 func sendData(conn net.Conn, idx int) <-chan<-chan *http.Response {
     fmt.Printf("recv %v\n", idx)
-    sessionResponses := make(chan(<-chan *http.Response), 3)
+    sessionResponses := make(chan(<-chan *http.Response))
     go func() {
         defer close(sessionResponses)
         reader := bufio.NewReader(conn)
         for {
             req, err := http.ReadRequest(reader)
             if err != nil {
+                //neterr, ok := err.(net.Error)
+                if err == io.EOF {
+                    fmt.Println("io.EOF")
+                    break
+                }
                 panic(err)
             }
+            fmt.Println("publish sessionResponse")
             sessionResponse := handleRequest(req)
+            // 1: send sessionResponse
             sessionResponses<- sessionResponse
         }
+        // 5: close sessionResponses
     }()
     return sessionResponses
 }
@@ -77,9 +83,14 @@ func writeToConn(sessionResponses <-chan<-chan *http.Response, conn net.Conn) ch
         defer close(done)
         defer conn.Close()
         for sessionResponse := range sessionResponses {
+            fmt.Println("recv: sessionResponse")
+            // 3: recv data in sessionResponse
+            // // 値が残っていたらそれを、なければデフォルト値を返すので、ここはnilにならない
             resp := <-sessionResponse
             resp.Write(conn)
         }
+        // 6: end loop for sessionResponses
+        fmt.Println("end: sessionResponses")
     }()
     return done
 }
@@ -93,6 +104,7 @@ func readRequest(jobNum int, connCh <-chan net.Conn) <-chan bool {
             defer wg.Done()
             for conn := range connCh {
                 sessionResponses := sendData(conn, idx)
+                // async
                 writeToConn(sessionResponses, conn)
             }
         }(i)
